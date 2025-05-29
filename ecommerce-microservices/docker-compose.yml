@@ -1,0 +1,109 @@
+# ecommerce-microservices/docker-compose.yml
+version: '3.8'
+
+services:
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    image: ecommerce/user-service # Optional: specify image name
+    container_name: user_service_container
+    ports:
+      - "3001:3001" # Host:Container
+    environment:
+      - USER_SERVICE_PORT=3001
+      - USER_DB_URI=mongodb://mongo_user:27017/user_service_db # Connect to the mongo_user service
+      - RABBITMQ_URI=amqp://rabbitmq:5672 # Connect to rabbitmq service
+      - JWT_SECRET=yourSuperSecretKeyForDockerCompose # Override .env for consistency
+      - JWT_EXPIRES_IN=1d
+      - NODE_ENV=development # Or 'production'
+    depends_on:
+      - mongo_user
+      - rabbitmq
+    volumes:
+      - ./user-service/src:/usr/src/app/src # Mount src for hot-reloading with nodemon (if using nodemon in dev CMD)
+      # If not using nodemon in Docker CMD, remove volume mount for production-like build
+    networks:
+      - ecommerce_network
+
+  product-service:
+    build:
+      context: ./product-service
+      dockerfile: Dockerfile
+    image: ecommerce/product-service
+    container_name: product_service_container
+    ports:
+      - "3002:3002"
+    environment:
+      - PRODUCT_SERVICE_PORT=3002
+      - PRODUCT_DB_URI=mongodb://mongo_product:27017/product_service_db
+      - RABBITMQ_URI=amqp://rabbitmq:5672
+      - NODE_ENV=development
+    depends_on:
+      - mongo_product
+      - rabbitmq
+    volumes:
+      - ./product-service/src:/usr/src/app/src
+    networks:
+      - ecommerce_network
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    image: ecommerce/api-gateway
+    container_name: api_gateway_container
+    ports:
+      - "3000:3000"
+    environment:
+      - API_GATEWAY_PORT=3000
+      - USER_SERVICE_URL=http://user-service:3001 # Service discovery via Docker Compose DNS
+      - PRODUCT_SERVICE_URL=http://product-service:3002
+      - NODE_ENV=development
+    depends_on:
+      - user-service
+      - product-service
+    volumes:
+      - ./api-gateway/src:/usr/src/app/src
+    networks:
+      - ecommerce_network
+
+  mongo_user:
+    image: mongo:latest
+    container_name: mongo_user_container
+    ports:
+      - "27018:27017" # Expose user mongo on host 27018 to avoid conflict if another mongo is running locally
+    volumes:
+      - user_db_data:/data/db # Persist user data
+    networks:
+      - ecommerce_network
+
+  mongo_product:
+    image: mongo:latest
+    container_name: mongo_product_container
+    ports:
+      - "27019:27017" # Expose product mongo on host 27019
+    volumes:
+      - product_db_data:/data/db # Persist product data
+    networks:
+      - ecommerce_network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine # Includes management plugin
+    container_name: rabbitmq_container
+    ports:
+      - "5672:5672"  # For AMQP protocol
+      - "15672:15672" # For RabbitMQ Management UI (guest:guest)
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq # Persist rabbitmq data
+    networks:
+      - ecommerce_network
+
+volumes:
+  user_db_data:
+  product_db_data:
+  rabbitmq_data:
+
+networks:
+  ecommerce_network:
+    driver: bridge
