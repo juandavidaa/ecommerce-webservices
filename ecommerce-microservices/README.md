@@ -124,3 +124,51 @@ ecommerce-microservices/
 ```
 
 This structure helps in maintaining separation of concerns and allows for independent development and deployment of services.
+
+## Fastify Prototype
+
+To explore alternatives to Express, a prototype service built with **Fastify** is
+included in the `fastify-product-service` directory. This lightweight service
+implements a couple of sample endpoints and provides scripts to benchmark its
+performance against a minimal Express implementation.
+
+### Running the prototype
+
+```bash
+cd fastify-product-service
+npm install
+npm run dev
+```
+
+The service exposes `/api/v1/products` and `/health` on the port defined in
+`.env` (defaults to `3003`).
+
+### Benchmarking Fastify vs Express
+
+Inside the same directory a `benchmark` script is available:
+
+```bash
+npm run benchmark
+```
+
+This starts an in-memory Express server and the Fastify server, then uses
+`autocannon` to compare throughput and latency. Example output:
+
+```
+┌─────────┬──────────┬─────────┐
+│ (index) │ requests │ latency │
+├─────────┼──────────┼─────────┤
+│ Express │ 5611     │ 8.4     │
+│ Fastify │ 22548.8  │ 1.62    │
+└─────────┴──────────┴─────────┘
+```
+
+Fastify handles significantly more requests per second with lower latency,
+illustrating its efficiency and ergonomic API for building services.
+
+### Steps towards the new architecture
+
+1. Add a new service folder (e.g. `fastify-product-service`).
+2. Implement a Fastify server in `src/index.ts` and configure TypeScript.
+3. Provide npm scripts for development, building and benchmarking.
+4. Use the benchmark results to evaluate adopting Fastify for other services.
